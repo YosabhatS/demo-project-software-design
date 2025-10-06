@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>Kitchen Display System (KDS)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* CSS Styling */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #2c3e50; color: #ecf0f1; padding: 20px; }
+        h1 { text-align: center; color: #f1c40f; }
+        #ordersContainer { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
+        .order-card { 
+            background: #34495e; 
+            border-radius: 8px; 
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4); 
+            padding: 15px; 
+            border-left: 5px solid #e74c3c; /* สีเริ่มต้น: ต้องทำ */
+            transition: all 0.3s ease;
+        }
+        .order-card.new {
+             border-left: 5px solid #2ecc71; /* สีเขียว: Order ใหม่ที่เพิ่งโหลด */
+             animation: highlight 1s ease-in-out infinite alternate;
+        }
+        @keyframes highlight {
+            from { box-shadow: 0 0 15px rgba(46, 204, 113, 0.7); }
+            to { box-shadow: 0 0 5px rgba(46, 204, 113, 0.2); }
+        }
+
+        .order-card h2 { margin-top: 0; color: #e74c3c; font-size: 1.5em; display: flex; justify-content: space-between; align-items: center; }
+        .order-card .table-id { color: #f1c40f; font-weight: bold; }
+        .order-card .status { font-size: 0.8em; background: #e74c3c; padding: 3px 8px; border-radius: 4px; color: white; }
+        .order-card ul { list-style: none; padding: 0; margin: 10px 0; }
+        .order-card ul li { padding: 5px 0; border-bottom: 1px dashed #4a637d; font-size: 1.1em; }
+        .order-card button { background: #2ecc71; color: white; border: none; padding: 10px; width: 100%; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        .order-card button:hover { background: #27ae60; }
+        .time-display { font-size: 0.9em; color: #bdc3c7; }
+        .log-error, .error-message { background-color: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-top: 20px; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <h1>ระบบแสดงผลห้องครัว (KDS)</h1>
+    <p class="time-display" id="lastUpdated">อัปเดตล่าสุด: กำลังโหลด...</p>
+    
+    <div id="log" class="error-message" style="display:none;"></div>
+
+    <div id="ordersContainer">
+        <p style="text-align:center;">กำลังโหลดคำสั่งซื้อใหม่...</p>
+    </div>
+
+    <script>
+        const ORDER_API_URL = 'http://localhost:8082/api/orders';
+        // ใช้ Endpoint ที่คุณสร้างใน Project Web (8082) เพื่อดึงเมนูทั้งหมด
+        const MENU_API_URL = `${ORDER_API_URL}/menu`; 
+        const KITCHEN_API_URL = `${ORDER_API_URL}/kitchen`;
+        const UPDATE_INTERVAL = 5000; // 5 วินาที
+        
+        let menuCache = {}; // { menuId: { name: '...', price: 100.00 }, ... }
+        let currentOrderIds = new Set(); // เก็บ ID ที่แสดงอยู่เพื่อตรวจสอบ Order ใหม่
+
+        // ----------------------------------------------------------------------
+        // 0. Utility: Log ข้อความ
+        // ----------------------------------------------------------------------
+        function logMessage(message, isError = false) {
+            const logElement = document.getElementById('log');
+            if (isError) {
+                logElement.innerText = message;
+                logElement.style.display = 'block';
+            } else {
+                console.log(message);
+                logElement.style.display = 'none';
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        // 1. Function โหลดข้อมูลเมนูทั้งหมด (Pre-fetch/Cache)
+        // ----------------------------------------------------------------------
+        async function loadMenuCache() {
+            logMessage("▶️ กำลังโหลดแคชเมนู...");
+            try {
+                const response = await fetch(MENU_API_URL);
+                if (response.ok) {
+                    const menus = await response.json();
+                    menuCache = {}; 
+                    menus.forEach(menu => {
+                        menuCache[menu.id] = { name: menu.name || `เมนู ID ${menu.id}`, price: menu.price };
+                    });
+                    logMessage(`✅ โหลดแคชเมนูสำเร็จ: ${Object.keys(menuCache).length} รายการ`);
+                } else {
+                    logMessage(`❌ ไม่สามารถโหลดแคชเมนูจาก ${MENU_API_URL} ได้! Status: ${response.status}`, true);
+                    return false;
+                }
+            } catch (error) {
+                logMessage(`❌ Network Error: ตรวจสอบ Project Web (8082) และ Data Service (8085). Error: ${error.message}`, true);
+                return false;
+            }
+            return true;
+        }
+
+
+        // ----------------------------------------------------------------------
+        // 2. Function ดึง Order ทั้งหมดสำหรับครัว (Status: CREATED)
+        // ----------------------------------------------------------------------
+        async function fetchKitchenOrders() {
+            // ตรวจสอบว่าแคชเมนูโหลดสำเร็จหรือไม่
+            if (Object.keys(menuCache).length === 0) {
+                 const menuLoaded = await loadMenuCache();
+                 if (!menuLoaded) {
+                    return; // หยุดถ้าโหลดเมนูไม่ได้
+                 }
+            }
+
+            try {
+                const response = await fetch(KITCHEN_API_URL);
+                
+                if (response.ok) {
+                    const orders = await response.json();
+                    logMessage(`✅ โหลด Order สำเร็จ: ${orders.length} รายการ`);
+                    renderOrders(orders);
+                } else if (response.status === 503) {
+                    logMessage(`❌ Error 503: Data Service (8085) ล่ม หรือไม่ตอบสนอง`, true);
+                }
+                else {
+                    const errorText = await response.text();
+                    logMessage(`❌ API Gateway Error: Status ${response.status}. Response: ${errorText.substring(0, 100)}`, true);
+                }
+            } catch (error) {
+                logMessage(`❌ Network Error: ไม่สามารถติดต่อ Project Web (8082) ได้. Error: ${error.message}`, true);
+            }
+            
+            document.getElementById('lastUpdated').innerText = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH')}`;
+        }
+
+        // ----------------------------------------------------------------------
+        // 3. Function แสดงผล Order (ใช้ Menu Cache)
+        // ----------------------------------------------------------------------
+        function renderOrders(orders) {
+            const container = document.getElementById('ordersContainer');
+            // container.innerHTML = ''; // เราจะไม่ล้างทันทีเพื่อจัดการ class 'new'
+            
+            if (orders.length === 0) {
+                container.innerHTML = '<p style="color:#2ecc71; text-align:center;">✅ ไม่มีคำสั่งซื้อที่ต้องดำเนินการในขณะนี้</p>';
+                currentOrderIds = new Set();
+                return;
+            }
+
+            // เก็บ ID ใหม่ที่กำลังจะแสดงผล
+            const newOrderIds = new Set(orders.map(order => order.id));
+            const ordersToRender = new Set();
+
+            // 1. ตรวจสอบ Order เดิมที่ต้องลบออก
+            container.querySelectorAll('.order-card').forEach(card => {
+                const orderId = parseInt(card.getAttribute('data-order-id'));
+                if (!newOrderIds.has(orderId)) {
+                    card.remove(); // ลบ Order ที่ทำเสร็จแล้วออกไปจาก DOM
+                } else {
+                    ordersToRender.add(orderId);
+                }
+            });
+
+            // 2. เพิ่มหรืออัปเดต Order ใหม่/ที่เหลือ
+            orders.forEach(order => {
+                const isNew = !currentOrderIds.has(order.id);
+                
+                let card = document.querySelector(`.order-card[data-order-id='${order.id}']`);
+                if (!card) {
+                    // สร้าง card ใหม่ถ้าไม่พบ
+                    card = document.createElement('div');
+                    container.prepend(card); // Prepend เพื่อให้ Order ใหม่ขึ้นต้นสุด
+                }
+
+                // ใช้ Menu Cache ในการแสดงชื่อเมนู
+                const itemsHtml = order.items && order.items.length > 0
+                    ? order.items.map(item => {
+                        const menuInfo = menuCache[item.menuId] || { name: `[ไม่พบเมนู ID: ${item.menuId}]`, price: 'N/A' };
+                        return `<li>**${item.quantity}x** - ${menuInfo.name}</li>`;
+                    }).join('')
+                    : '<li>ไม่มีรายการย่อย (โปรดตรวจสอบ OrderInfoDTO)</li>';
+                
+                card.className = `order-card ${isNew ? 'new' : ''}`;
+                card.setAttribute('data-order-id', order.id);
+                card.innerHTML = `
+                    <h2>Order <span class="table-id">#${order.id}</span> (โต๊ะ ${order.tableId}) <span class="status">${order.status}</span></h2>
+                    <p class="time-display">เวลาสั่ง: ${new Date(order.createdAt).toLocaleTimeString('th-TH')}</p>
+                    <ul>${itemsHtml}</ul>
+                    <button onclick="markAsCompleted(${order.id})">✅ ทำเสร็จแล้ว</button>
+                `;
+
+                // ลบ class 'new' หลังจากผ่านไป 1.5 วินาที
+                if (isNew) {
+                    setTimeout(() => card.classList.remove('new'), 1500);
+                }
+            });
+
+            // 3. อัปเดต Set ของ Order IDs ที่แสดงอยู่
+            currentOrderIds = newOrderIds;
+        }
+        
+        // ----------------------------------------------------------------------
+        // 4. Function อัปเดตสถานะเป็น COMPLETED
+        // ----------------------------------------------------------------------
+        async function markAsCompleted(orderId) {
+            if (!confirm(`ยืนยันการทำ Order #${orderId} เสร็จสิ้น?`)) return;
+
+            logMessage(`▶️ กำลังอัปเดต Order #${orderId} เป็น COMPLETED...`);
+            try {
+                // 💡 เรียก Endpoint PUT ที่ Port 8082
+                const response = await fetch(`${ORDER_API_URL}/${orderId}/status/completed`, {
+                    method: 'PUT'
+                });
+
+                if (response.ok) {
+                    logMessage(`✅ Order #${orderId} เสร็จสิ้น`, false);
+                    // ลบการ์ดออกจาก DOM ทันที
+                    document.querySelector(`.order-card[data-order-id='${orderId}']`)?.remove();
+                    // โหลดรายการใหม่ทันทีเพื่อซิงค์
+                    fetchKitchenOrders(); 
+                } else {
+                    const errorText = await response.text();
+                    logMessage(`❌ ไม่สามารถอัปเดตสถานะได้: Status ${response.status}. ${errorText.substring(0, 100)}`, true);
+                }
+            } catch (error) {
+                 logMessage(`❌ Network Error: ไม่สามารถติดต่อ API Gateway ได้. ${error.message}`, true);
+            }
+        }
+
+        // ----------------------------------------------------------------------
+        // 5. เริ่มต้นการทำงานและตั้งเวลาอัปเดต
+        // ----------------------------------------------------------------------
+        document.addEventListener('DOMContentLoaded', async () => {
+            logMessage("▶️ เริ่มต้น Kitchen Display System...");
+            await loadMenuCache(); 
+            fetchKitchenOrders(); 
+            // ตั้งเวลาโหลดซ้ำทุก 5 วินาที
+            setInterval(fetchKitchenOrders, UPDATE_INTERVAL); 
+        });
+    </script>
+</body>
+</html>
