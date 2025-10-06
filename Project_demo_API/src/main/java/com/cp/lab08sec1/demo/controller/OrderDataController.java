@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -106,5 +107,27 @@ public class OrderDataController {
         return toMono(() -> orderDataService.findAllMenuItems()) // แปลง List เป็น Mono
             .flatMapMany(Flux::fromIterable); // แปลง Mono<List> เป็น Flux<MenuItemDTO>
     }
+    
+    @GetMapping("/orders/status/{status}")
+    public Flux<OrderInfoDTO> fetchOrdersByStatus(@PathVariable String status) {
+        // แปลง Blocking List ให้เป็น Flux (Stream)
+        return Flux.fromIterable(orderDataService.findOrdersByStatus(status));
+    }
+    
+    @PutMapping("/orders/{orderId}/status/{status}")
+    public Mono<ResponseEntity<OrderInfoDTO>> updateOrderStatus(
+            @PathVariable Long orderId,
+            @PathVariable String status) {
+        
+        return toMono(() -> orderDataService.updateOrderStatus(orderId, status))
+            .map(dto -> ResponseEntity.ok(dto))
+            // แปลง ResourceNotFoundException (จาก Service) เป็น HTTP 404
+            .onErrorMap(ResourceNotFoundException.class, e -> 
+                new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage()))
+            // จัดการ Error อื่นๆ เช่น IllegalArgumentException เป็น HTTP 400
+            .onErrorMap(IllegalArgumentException.class, e -> 
+                new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage()));
+    }
+
 
 }

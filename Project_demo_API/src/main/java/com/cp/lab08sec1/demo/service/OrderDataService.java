@@ -126,6 +126,24 @@ public class OrderDataService {
             .map(this::toMenuItemDTO)
             .collect(Collectors.toList());
     }
+    
+    public List<OrderInfoDTO> findOrdersByStatus(String status) {
+        return orderInfoRepository.findByStatus(status).stream()
+            .map(this::toOrderInfoDTO) // toOrderInfoDTO คือเมธอดที่ใช้แปลง OrderInfo Entity เป็น OrderInfoDTO
+            .collect(Collectors.toList());
+    }
+    
+    @Transactional
+    public OrderInfoDTO updateOrderStatus(Long orderId, String newStatus) {
+        OrderInfo order = orderInfoRepository.findById(orderId)
+            .orElseThrow(() -> new ResourceNotFoundException("Order ID " + orderId + " not found."));
+
+        // แปลงสถานะให้เป็นตัวพิมพ์ใหญ่ เพื่อป้องกันความผิดพลาด
+        order.setStatus(newStatus.toUpperCase()); 
+        OrderInfo updatedOrder = orderInfoRepository.save(order);
+
+        return toOrderInfoDTO(updatedOrder);
+    }
 
     // ----------------------------------------------------------------------
     // --- Private Mappers (แปลง Entity เป็น DTO) ---

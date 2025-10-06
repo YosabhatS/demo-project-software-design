@@ -129,5 +129,40 @@ public class OrderService implements IOrderService{
 	            
 	        // ไม่ต้องจัดการ ResourceNotFound เพราะถ้าไม่มีเมนูเลย จะคืนค่าเป็น Flux ว่าง
 	    }
+	    
+	    public Flux<OrderInfoDTO> getOrdersByStatus(String status) {
+	        // 1. ดึง OrderInfo หลักทั้งหมดตามสถานะ (Flux<OrderInfoDTO>)
+	        return dataServiceClient.fetchOrdersByStatus(status)
+	            // 2. ใช้ flatMap เพื่อ Enriched ข้อมูลของแต่ละ Order 
+	            .flatMap(orderInfo -> {
+	                // 2.1 ดึง OrderItems ที่เกี่ยวข้อง (Flux<OrderItemDTO>)
+	                Flux<OrderItemDTO> itemsFlux = dataServiceClient.fetchOrderItems(orderInfo.getId());
+
+	                // 2.2 ดึงรายละเอียด MenuItem สำหรับแต่ละ OrderItem
+	                Flux<OrderItemDTO> enrichedItemsFlux = itemsFlux
+	                    .flatMap(itemDto -> dataServiceClient.fetchMenuItem(itemDto.getMenuId())
+	                        .map(menuItemDto -> {
+	                            // ✅ แก้ไข: ใช้ setMenuItemDetails() แทน setName()
+	                            itemDto.setMenuItemDetails(menuItemDto); 
+	                            return itemDto;
+	                        })
+	                        // หากไม่พบ Menu (fetchMenuItem รีเทิร์น 404/Empty Mono) 
+	                        // เรายังคง OrderItem เดิมไว้ (itemDto ที่ไม่มีรายละเอียดเมนู)
+	                        .switchIfEmpty(Mono.just(itemDto)) 
+	                    );
+	                
+	                // 3. รวม OrderInfo หลัก กับ enrichedItemsList
+	                return enrichedItemsFlux.collectList()
+	                    .map(itemsList -> {
+	                        orderInfo.setItems(itemsList); // orderInfo.items คือ List<OrderItemDTO>
+	                        return orderInfo;
+	                    });
+	            });
+	    }
+	    
+	    public Mono<OrderInfoDTO> completeOrder(Long orderId) {
+	        // 1. เรียก Data Service เพื่ออัปเดตสถานะเป็น "COMPLETED"
+	        return dataServiceClient.updateOrderStatus(orderId, "COMPLETED");
+	    }
 
 }

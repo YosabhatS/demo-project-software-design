@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,6 +29,39 @@ public class OrderController {
     // Constructor Injection
     public OrderController(OrderService orderService) {
         this.orderService = orderService;
+    }
+    
+    @GetMapping("/menu")
+    public Flux<MenuItemDTO> getAllMenuItems() {
+        return orderService.getAllMenuItems()
+            // ไม่ต้องใช้ ResponseEntity เพราะ Flux จะจัดการการ Streaming ให้อยู่แล้ว
+            
+            // จัดการ Error: Remote Service Failure (ถ้า Data Service ล่ม)
+            .onErrorResume(RemoteServiceException.class, e -> {
+                // คืนค่าเป็น 503 Service Unavailable (โดยการโยน Exception ที่ WebFlux จัดการ)
+                return Flux.error(new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE, "Data Service is unavailable to fetch menu"
+                ));
+            });
+    }
+    
+    @GetMapping("/kitchen")
+    public Flux<OrderInfoDTO> getKitchenOrders() {
+        return orderService.getOrdersByStatus("CREATED")
+                .onErrorResume(RemoteServiceException.class, e -> 
+                    // คืนค่า 503 SERVICE_UNAVAILABLE 
+                    Flux.error(new org.springframework.web.server.ResponseStatusException(
+                        HttpStatus.SERVICE_UNAVAILABLE, "Data Service is unavailable to fetch kitchen orders.")));
+    }
+    
+    @PutMapping("/{orderId}/status/completed")
+    public Mono<ResponseEntity<OrderInfoDTO>> completeOrder(@PathVariable Long orderId) {
+        return orderService.completeOrder(orderId)
+                .map(updatedOrder -> new ResponseEntity<>(updatedOrder, HttpStatus.OK))
+                .onErrorResume(ResourceNotFoundException.class, e -> 
+                    Mono.just(new ResponseEntity<>(HttpStatus.NOT_FOUND)))
+                .onErrorResume(RemoteServiceException.class, e -> 
+                    Mono.just(new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE)));
     }
 
 
@@ -91,18 +125,6 @@ public class OrderController {
                 Mono.just(new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE)));
     }
     
-    @GetMapping("/menu")
-    public Flux<MenuItemDTO> getAllMenuItems() {
-        return orderService.getAllMenuItems()
-            // ไม่ต้องใช้ ResponseEntity เพราะ Flux จะจัดการการ Streaming ให้อยู่แล้ว
-            
-            // จัดการ Error: Remote Service Failure (ถ้า Data Service ล่ม)
-            .onErrorResume(RemoteServiceException.class, e -> {
-                // คืนค่าเป็น 503 Service Unavailable (โดยการโยน Exception ที่ WebFlux จัดการ)
-                return Flux.error(new org.springframework.web.server.ResponseStatusException(
-                    HttpStatus.SERVICE_UNAVAILABLE, "Data Service is unavailable to fetch menu"
-                ));
-            });
-    }
+
 
 }
