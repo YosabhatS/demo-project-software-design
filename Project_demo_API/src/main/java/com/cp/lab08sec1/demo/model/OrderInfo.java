@@ -12,8 +12,12 @@ public class OrderInfo {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private Long tableId;
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private OrderStatus status;
     private LocalDateTime createdAt;
+    @ManyToOne
+    @JoinColumn(name = "table_id", insertable = false, updatable = false)
+    private TableInfo tableInfo;
     
 	public Long getId() {
 		return id;
@@ -27,11 +31,12 @@ public class OrderInfo {
 	public void setTableId(Long tableId) {
 		this.tableId = tableId;
 	}
-	public String getStatus() {
-		return status;
+	public OrderStatus getStatus() {
+	    return status;
 	}
-	public void setStatus(String status) {
-		this.status = status;
+
+	public void setStatus(OrderStatus status) {
+	    this.status = status;
 	}
 	public LocalDateTime getCreatedAt() {
 		return createdAt;

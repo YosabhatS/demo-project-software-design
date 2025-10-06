@@ -1,5 +1,6 @@
 package com.cp.lab08sec1.demo.controller;
 
+import java.util.List;
 import java.util.concurrent.Callable;
 
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,8 @@ import com.cp.lab08sec1.demo.dto.MenuItemDTO;
 import com.cp.lab08sec1.demo.dto.OrderInfoDTO;
 import com.cp.lab08sec1.demo.dto.OrderItemDTO;
 import com.cp.lab08sec1.demo.dto.OrderRequest;
+import com.cp.lab08sec1.demo.model.OrderInfo;
+import com.cp.lab08sec1.demo.model.OrderItem;
 import com.cp.lab08sec1.demo.service.OrderDataService;
 import com.cp.lab08sec1.demo.service.ResourceNotFoundException;
 
@@ -128,6 +131,19 @@ public class OrderDataController {
             .onErrorMap(IllegalArgumentException.class, e -> 
                 new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage()));
     }
-
+    
+    @GetMapping("/orders/table/{tableId}/active")
+    public Mono<ResponseEntity<OrderInfoDTO>> getActiveOrderByTable(@PathVariable Long tableId) {
+        return toMono(() -> orderDataService.findCurrentOrder(tableId))
+                .map(optionalDto -> optionalDto
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.notFound().build()));
+    }
+    
+    @GetMapping("/orders/table/{tableId}/all")
+    public Flux<OrderInfoDTO> getAllOrdersByTable(@PathVariable Long tableId) {
+        return Flux.fromIterable(orderDataService.findAllOrdersForTable(tableId));
+    }
+    
 
 }

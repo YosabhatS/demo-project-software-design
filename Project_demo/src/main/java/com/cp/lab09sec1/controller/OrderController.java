@@ -24,11 +24,20 @@ import reactor.core.publisher.Mono;
 @RestController // 🚩 ใช้ @RestController ถ้า Controller นี้คืนค่า JSON โดยตรง (ซึ่งคาดว่าเป็นเช่นนั้น)
 @RequestMapping("/api/orders") // 🚩 NEW: Base URL สำหรับ Web/Client Service
 public class OrderController {
+	private static final String DATA_SERVICE_URL = "http://localhost:8085"; 
 	private final OrderService orderService; 
+	private final org.springframework.web.client.RestTemplate restTemplate;
 
     // Constructor Injection
     public OrderController(OrderService orderService) {
         this.orderService = orderService;
+        this.restTemplate = new org.springframework.web.client.RestTemplate();
+    }
+    @PostMapping("/table/{tableId}/payment")
+    public ResponseEntity<String> payForTable(@PathVariable Long tableId) {
+        String targetUrl = DATA_SERVICE_URL + "/api/orders/table/" + tableId + "/payment";
+        ResponseEntity<String> response = restTemplate.postForEntity(targetUrl, null, String.class);
+        return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
     }
     
     @GetMapping("/menu")
@@ -125,6 +134,17 @@ public class OrderController {
                 Mono.just(new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE)));
     }
     
+    @PostMapping("/{orderId}/payment")
+    public ResponseEntity<String> forwardPayment(@PathVariable Long orderId) {
+        String url = DATA_SERVICE_URL + "/api/orders/" + orderId + "/payment";
+        return restTemplate.postForEntity(url, null, String.class);
+    }
+    
+    @GetMapping("/tables/{tableId}")
+    public ResponseEntity<String> getTableInfo(@PathVariable Long tableId) {
+        String url = DATA_SERVICE_URL + "/api/tables/" + tableId;
+        return restTemplate.getForEntity(url, String.class);
+    }
 
 
 }

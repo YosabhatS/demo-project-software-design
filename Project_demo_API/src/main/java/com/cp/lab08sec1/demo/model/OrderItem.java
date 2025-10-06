@@ -1,5 +1,7 @@
 package com.cp.lab08sec1.demo.model;
 
+import java.math.BigDecimal;
+
 import jakarta.persistence.*; // 💡 ใช้ jakarta.persistence (สำหรับ Spring Boot 3+)
 
 @Entity
@@ -20,12 +22,22 @@ public class OrderItem {
 
     @Column(name = "quantity")
     private Integer quantity;
+    
+    private BigDecimal price;
 
     // 💡 หากใช้ Lombok สามารถเพิ่ม @Data, @NoArgsConstructor, @AllArgsConstructor ได้
     
     // --- Getters and Setters (ถ้าไม่ได้ใช้ Lombok) ---
 
-    public Long getId() {
+    public BigDecimal getPrice() {
+		return price;
+	}
+
+	public void setPrice(BigDecimal price) {
+		this.price = price;
+	}
+
+	public Long getId() {
         return id;
     }
 

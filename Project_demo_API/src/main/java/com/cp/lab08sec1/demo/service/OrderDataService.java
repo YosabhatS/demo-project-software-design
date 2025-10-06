@@ -14,6 +14,7 @@ import com.cp.lab08sec1.demo.dto.OrderRequest;
 import com.cp.lab08sec1.demo.model.MenuItem;
 import com.cp.lab08sec1.demo.model.OrderInfo;
 import com.cp.lab08sec1.demo.model.OrderItem;
+import com.cp.lab08sec1.demo.model.OrderStatus;
 import com.cp.lab08sec1.demo.repository.MenuItemRepository;
 import com.cp.lab08sec1.demo.repository.OrderInfoRepository;
 import com.cp.lab08sec1.demo.repository.OrderItemRepository;
@@ -97,7 +98,7 @@ public class OrderDataService {
         // --- 2. บันทึก OrderInfo หลัก ---
         OrderInfo order = new OrderInfo();
         order.setTableId(request.getTableId());
-        order.setStatus("CREATED");
+        order.setStatus(OrderStatus.CREATED);
         order.setCreatedAt(LocalDateTime.now());
 
         OrderInfo savedOrder = orderInfoRepository.save(order);
@@ -115,7 +116,7 @@ public class OrderDataService {
     
     public Optional<OrderInfoDTO> findCurrentOrder(Long tableId) {
         // กำหนดสถานะที่ถือว่า "ปัจจุบัน" หรือ "ยังไม่เสร็จ"
-        return orderInfoRepository.findFirstByTableIdAndStatus(tableId, "CREATED") 
+        return orderInfoRepository.findFirstByTableIdAndStatus(tableId, OrderStatus.CREATED) 
                .map(order -> toOrderInfoDTO(order, orderItemRepository.findByOrderId(order.getId())));
     }
     
@@ -128,7 +129,8 @@ public class OrderDataService {
     }
     
     public List<OrderInfoDTO> findOrdersByStatus(String status) {
-        return orderInfoRepository.findByStatus(status).stream()
+    	OrderStatus statusEnum = OrderStatus.valueOf(status.toUpperCase());
+        return orderInfoRepository.findByStatus(statusEnum).stream()
             .map(this::toOrderInfoDTO) // toOrderInfoDTO คือเมธอดที่ใช้แปลง OrderInfo Entity เป็น OrderInfoDTO
             .collect(Collectors.toList());
     }
@@ -139,7 +141,8 @@ public class OrderDataService {
             .orElseThrow(() -> new ResourceNotFoundException("Order ID " + orderId + " not found."));
 
         // แปลงสถานะให้เป็นตัวพิมพ์ใหญ่ เพื่อป้องกันความผิดพลาด
-        order.setStatus(newStatus.toUpperCase()); 
+        OrderStatus statusEnum = OrderStatus.valueOf(newStatus.toUpperCase());
+        order.setStatus(statusEnum);
         OrderInfo updatedOrder = orderInfoRepository.save(order);
 
         return toOrderInfoDTO(updatedOrder);
@@ -153,7 +156,7 @@ public class OrderDataService {
         OrderInfoDTO dto = new OrderInfoDTO();
         dto.setId(entity.getId());
         dto.setTableId(entity.getTableId());
-        dto.setStatus(entity.getStatus());
+        dto.setStatus(entity.getStatus().name());
         dto.setCreatedAt(entity.getCreatedAt());
         return dto;
     }
@@ -187,7 +190,7 @@ public class OrderDataService {
         OrderInfoDTO dto = new OrderInfoDTO();
         dto.setId(entity.getId());
         dto.setTableId(entity.getTableId());
-        dto.setStatus(entity.getStatus());
+        dto.setStatus(entity.getStatus().name());
         dto.setCreatedAt(entity.getCreatedAt());
 
         // 🚩 NEW: แปลง List<OrderItem> เป็น List<OrderItemDTO>
@@ -199,5 +202,11 @@ public class OrderDataService {
         return dto;
     }
     
+    public List<OrderInfoDTO> findAllOrdersForTable(Long tableId) {
+        return orderInfoRepository.findFirstByTableIdAndStatus(tableId, OrderStatus.CREATED)
+                .stream()
+                .map(order -> toOrderInfoDTO(order, orderItemRepository.findByOrderId(order.getId())))
+                .collect(Collectors.toList());
+    }
     
 }
