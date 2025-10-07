@@ -11,7 +11,10 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication
 @Configuration
-@EnableJpaRepositories(basePackages = "com.cp.lab08sec1.demo.repository") 
+@EnableJpaRepositories(basePackages = {
+        "com.cp.lab08sec1.demo.repository",
+        "com.cp.lab08sec1.demo.staff.repository"
+})
 public class Lab082567RestfulSec1Application {
 
 	public static void main(String[] args) {

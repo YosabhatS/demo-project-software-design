@@ -44,7 +44,9 @@
         </div>
         <div>
             <button onclick="submitOrder()">ส่งคำสั่งซื้อ</button>
-            <button id="payButton" onclick="payAllOrders()">💰 ชำระเงินทั้งหมด</button>
+            <span style="margin-left: 12px; font-size: 0.9em; color: #ffc107;">
+                💡 แจ้งพนักงานเพื่อชำระเงินที่เคาน์เตอร์
+            </span>
         </div>
     </div>
 
@@ -95,18 +97,21 @@
             }
             menuItems.forEach(item => {
                 const qty = orderItems[item.id] || 0;
+                const imageSrc = `http://localhost:8085${item.imageUrl || '/images/default.jpg'}`;
                 html += `
                     <div class="menu-item">
-                        <div class="item-details">
-                            <h3>${item.name}</h3>
-                            <p>ราคา: ${item.price.toFixed(2)} บาท</p>
-                        </div>
-                        <div class="controls">
-                            <button onclick="updateQuantity(${item.id}, -1)">-</button>
-                            <input type="number" id="qty-${item.id}" value="${qty}" readonly>
-                            <button class="add" onclick="updateQuantity(${item.id}, 1)">+</button>
-                        </div>
-                    </div>
+                	<img src="${imageSrc}" alt="${item.name}" 
+                    style="width:80px; height:80px; object-fit:cover; border-radius:8px; margin-right:10px;">
+               <div class="item-details" style="flex:1;">
+                   <h3>${item.name}</h3>
+                   <p>ราคา: ${item.price.toFixed(2)} บาท</p>
+               </div>
+               <div class="controls">
+                   <button onclick="updateQuantity(${item.id}, -1)">-</button>
+                   <input type="number" id="qty-${item.id}" value="${qty}" readonly>
+                   <button class="add" onclick="updateQuantity(${item.id}, 1)">+</button>
+               </div>
+           </div>
                 `;
             });
             listElement.innerHTML = html;
@@ -183,7 +188,7 @@
                     <div class="order-item">
                         <div class="item-details">
                             <h3>${menuName}</h3>
-                            <p>จำนวน: ${item.quantity} | ราคา: ${price.toFixed(2)} บาท</p>
+                            <p>จำนวน: ${item.quantity} | ราคา: ${price.toFixed(2) * item.quantity} บาท</p>
                         </div>
                     </div>
                 `;
@@ -191,21 +196,6 @@
             container.innerHTML = html;
         }
 
-        // ชำระเงินทั้งหมด
-        async function payAllOrders() {
-            logMessage(`▶️ กำลังชำระเงินทั้งหมด...`);
-            try {
-                const response = await fetch(`${ORDER_API_URL}/table/${TABLE_ID}/payment`, { method: 'POST' });
-                if (response.ok) {
-                    const payment = await response.json();
-                    window.location.href = `receipt.html?tableId=${TABLE_ID}&amount=${payment.totalAmount}&paidAt=${encodeURIComponent(payment.paidAt)}`;
-                } else {
-                    logMessage(`❌ ชำระเงินไม่สำเร็จ: ${response.status}`, true);
-                }
-            } catch (error) {
-                logMessage(`❌ Network Error: ${error.message}`, true);
-            }
-        }
 
         function logMessage(message, isError = false) {
             const log = document.getElementById('log');

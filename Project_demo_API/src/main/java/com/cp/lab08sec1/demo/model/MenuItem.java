@@ -17,6 +17,8 @@ public class MenuItem {
     private String name;
     
     private Double price; // 💡 คอลัมน์ price ตาม ER Diagram
+    
+    private String imageUrl;
 
 	public Long getId() {
 		return id;
@@ -40,6 +42,14 @@ public class MenuItem {
 
 	public void setPrice(Double price) {
 		this.price = price;
+	}
+	
+	public String getImageUrl() {
+		return imageUrl;
+	}
+
+	public void setImageUrl(String imageUrl) {
+		this.imageUrl = imageUrl;
 	}
     
     

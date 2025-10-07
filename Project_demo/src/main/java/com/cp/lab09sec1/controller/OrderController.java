@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.cp.lab09sec1.dto.MenuItemDTO;
 import com.cp.lab09sec1.dto.OrderInfoDTO;
 import com.cp.lab09sec1.dto.OrderRequest;
+import com.cp.lab09sec1.dto.PaymentReceiptDTO;
 import com.cp.lab09sec1.service.OrderService;
 import com.cp.lab09sec1.service.RemoteServiceException;
 import com.cp.lab09sec1.service.ResourceNotFoundException;
@@ -34,9 +35,10 @@ public class OrderController {
         this.restTemplate = new org.springframework.web.client.RestTemplate();
     }
     @PostMapping("/table/{tableId}/payment")
-    public ResponseEntity<String> payForTable(@PathVariable Long tableId) {
+    public ResponseEntity<PaymentReceiptDTO> payForTable(@PathVariable Long tableId) {
         String targetUrl = DATA_SERVICE_URL + "/api/orders/table/" + tableId + "/payment";
-        ResponseEntity<String> response = restTemplate.postForEntity(targetUrl, null, String.class);
+        ResponseEntity<PaymentReceiptDTO> response = restTemplate.postForEntity(targetUrl, null,
+                PaymentReceiptDTO.class);
         return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
     }
     
@@ -135,9 +137,21 @@ public class OrderController {
     }
     
     @PostMapping("/{orderId}/payment")
-    public ResponseEntity<String> forwardPayment(@PathVariable Long orderId) {
+    public ResponseEntity<PaymentReceiptDTO> forwardPayment(@PathVariable Long orderId) {
         String url = DATA_SERVICE_URL + "/api/orders/" + orderId + "/payment";
-        return restTemplate.postForEntity(url, null, String.class);
+        ResponseEntity<PaymentReceiptDTO> response = restTemplate.postForEntity(url, null,
+                PaymentReceiptDTO.class);
+        return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
+    }
+
+    @GetMapping("/status/{status}")
+    public Flux<OrderInfoDTO> getOrdersByStatus(@PathVariable String status) {
+        return orderService.getOrdersByStatus(status)
+                .onErrorResume(ResourceNotFoundException.class, e -> Flux.error(
+                        new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage())))
+                .onErrorResume(RemoteServiceException.class, e -> Flux.error(
+                        new org.springframework.web.server.ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                                "Data Service is unavailable to fetch orders by status.")));
     }
     
     @GetMapping("/tables/{tableId}")

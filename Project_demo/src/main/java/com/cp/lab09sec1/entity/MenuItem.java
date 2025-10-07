@@ -15,6 +15,9 @@ public class MenuItem {
     @Column(name = "price", nullable = false)
     private Double price; // Corresponds to 'price'
     
+    @Column(name = "imageUrl", nullable = false)
+    private String imageUrl; // Corresponds to 'price';
+    
     public MenuItem() {
     	
     }
@@ -47,5 +50,13 @@ public class MenuItem {
 
 	public void setPrice(Double price) {
 		this.price = price;
+	}
+	
+	public String getImageUrl() {
+		return imageUrl;
+	}
+
+	public void setImageUrl(String imageUrl) {
+		this.imageUrl = imageUrl;
 	}
 }
