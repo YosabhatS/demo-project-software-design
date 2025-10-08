@@ -183,6 +183,7 @@ public class OrderDataService {
         dto.setId(entity.getId());
         dto.setName(entity.getName());
         dto.setPrice(entity.getPrice());
+        dto.setImageUrl(entity.getImageUrl());
         return dto;
     }
     
