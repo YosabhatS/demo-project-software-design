@@ -141,7 +141,20 @@ th { background: #f8f9fb; color:#2c3e50; }
     border: 1px solid rgba(0,0,0,0.2);
     font-size: 0.9rem;
 }
+.table-scroll {
+    max-height: 400px;       /* 🔹 กำหนดความสูงสูงสุดของกล่องตาราง */
+    overflow-y: auto;        /* 🔹 เปิดการเลื่อนแนวตั้ง */
+    border-radius: 10px;     /* 🔹 มุมโค้งดูสวยขึ้น */
+    border: 1px solid #eee;  /* 🔹 ขอบบาง ๆ เพื่อแยกตารางออกจากพื้นหลัง */
+}
 
+/* ให้ header ตารางคงที่เวลาเลื่อน */
+.table-scroll thead th {
+    position: sticky;
+    top: 0;
+    background: #f8f9fb;
+    z-index: 2;
+}
 
 
 </style>
@@ -209,21 +222,21 @@ th { background: #f8f9fb; color:#2c3e50; }
                 <canvas id="menuPieChart"></canvas>
             </div>
         </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Order</th>
-                    <th>โต๊ะ</th>
-                    <th>จำนวนรายการ</th>
-                    <th>ยอดรวม (บาท)</th>
-                    <th>เวลาสั่ง</th>
-                </tr>
-            </thead>
-            <tbody id="salesBody">
-                <tr><td colspan="5" class="muted">กำลังโหลดข้อมูล...</td></tr>
-            </tbody>
-        </table>
+<div class="table-scroll">
+    	<table>
+        	<thead>
+          	  <tr>
+               	 <th>Order</th>
+               	 <th>โต๊ะ</th>
+            	 <th>จำนวนรายการ</th>
+        	     <th>ยอดรวม (บาท)</th>
+               	 <th>เวลาสั่ง</th>
+           	 </tr>
+        </thead>
+        <tbody id="salesBody">
+            <tr><td colspan="5" class="muted">กำลังโหลดข้อมูล...</td></tr>
+        </tbody>
+    </table>
         <div class="totals">ยอดขายรวม: <span id="salesTotal">0.00</span> บาท</div>
     </section>
 </main>
